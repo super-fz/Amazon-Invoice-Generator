@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amazon Seller Invoice Generator</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 0;
+    color: #333;
+  }
+  header {
+    background: #232f3e;
+    color: #fff;
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+  main {
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  h1 {
+    margin-bottom: 1rem;
+    color: #111;
+  }
+  .upload-section {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+  }
+  .upload-section label {
+    font-weight: 600;
+  }
+  input[type=file] {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+  }
+  button {
+    margin-top: 1rem;
+    background-color: #febd69;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    color: #111;
+    cursor: pointer;
+    box-shadow: 0 4px #b37823;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #f7a11d;
+  }
+  button:active {
+    box-shadow: 0 2px #b37823;
+    transform: translateY(2px);
+  }
+  .invoices-container {
+    margin-top: 2rem;
+  }
+  .invoice {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-left: 6px solid #febd69;
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+  }
+  .invoice header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+  }
+  .invoice header h2 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.3rem;
+  }
+  .invoice header .invoice-date {
+    color: #777;
+    font-size: 0.9rem;
+    align-self: center;
+  }
+  .invoice-section {
+    margin-top: 0.8rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+  }
+  th, td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+  }
+  th {
+    background-color: #f9f9f9;
+  }
+  tfoot td {
+    font-weight: 600;
+  }
+  .download-button {
+    background: #232f3e;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    border: none;
+  }
+  .download-button:hover {
+    background: #3a4756;
+  }
+  footer {
+    text-align: center;
+    margin: 3rem 0 1rem;
+    color: #777;
+    font-size: 0.9rem;
+  }
+  @media (max-width: 600px) {
+    .invoice header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .invoice header .invoice-date {
+      margin-top: 0.5rem;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  Amazon Seller Invoice Generator
+</header>
+<main>
+  <section class="upload-section" aria-label="Upload order data JSON">
+    <label for="orderFile">Upload Amazon Order Data JSON file:</label><br/>
+    <input type="file" id="orderFile" accept=".json" aria-describedby="uploadHelp" />
+    <div id="uploadHelp" style="font-size: 0.9rem; color: #555; margin-top: 5px;">
+      Select the JSON file containing your orders data. (For demonstration, upload a JSON export of your orders)
+    </div>
+    <button id="generateInvoicesBtn" disabled>Generate Invoices</button>
+  </section>
+  <section class="invoices-container" id="invoicesContainer" aria-live="polite" aria-label="Generated invoices will appear here">
+  </section>
+</main>
+<footer>
+  &copy; 2024 Amazon Seller Invoice Generator Tool
+</footer>
+<script>
+  // Simple invoice template generator function
+  function formatCurrency(amount) {
+    return '$' + amount.toFixed(2);
+  }
+
+  function createInvoiceHTML(order) {
+    const orderId = order.amazonOrderId || order.OrderId || 'N/A';
+    const purchaseDate = new Date(order.purchaseDate || order.PurchaseDate || Date.now()).toLocaleDateString();
+    const buyerName = order.buyerName || order.PurchaseBuyerName || 'Valued Customer';
+    const buyerAddress = order.shippingAddress || order.ShippingAddress || {};
+    const items = order.orderItems || order.OrderItems || [];
+    const sellerName = order.sellerName || 'Your Company Name';
+    const sellerAddress = order.sellerAddress || {
+      name: 'Your Company Name',
+      street1: '123 Business Rd.',
+      city: 'Business City',
+      stateOrRegion: 'ST',
+      postalCode: '12345',
+      countryCode: 'US'
+    };
+
+    let itemsHTML = '';
+    let totalAmount = 0;
+
+    items.forEach(item => {
+      const title = item.title || item.ProductName || 'Product';
+      const quantity = item.quantityOrdered || item.QuantityOrdered || 1;
+      const price = (item.itemPrice && item.itemPrice.amount) || item.price || 0;
+      const subtotal = price * quantity;
+      totalAmount += subtotal;
+
+      itemsHTML += `
+      <tr>
+        <td>${title}</td>
+        <td>${quantity}</td>
+        <td>${formatCurrency(price)}</td>
+        <td>${formatCurrency(subtotal)}</td>
+      </tr>`;
+    });
+
+    let shipAddressHTML = `
+    ${buyerAddress.name || buyerName}<br/>
+    ${buyerAddress.addressLine1 || buyerAddress.street1 || ''}<br/>
+    ${buyerAddress.addressLine2 || ''}${buyerAddress.addressLine2 ? '<br/>' : ''}
+    ${buyerAddress.city || ''}, ${buyerAddress.stateOrRegion || ''} ${buyerAddress.postalCode || ''}<br/>
+    ${buyerAddress.countryCode || ''}`;
+
+    return `
+    <article class="invoice" tabindex="0" aria-label="Invoice for order ${orderId}">
+      <header>
+        <h2>Invoice - Order #${orderId}</h2>
+        <div class="invoice-date">Date: ${purchaseDate}</div>
+      </header>
+      <div class="invoice-section seller-info">
+        <strong>Seller:</strong><br/>
+        ${sellerName}<br/>
+        ${sellerAddress.street1}<br/>
+        ${sellerAddress.city}, ${sellerAddress.stateOrRegion} ${sellerAddress.postalCode}<br/>
+        ${sellerAddress.countryCode}<br/>
+      </div>
+      <div class="invoice-section buyer-info" style="margin-top:1rem;">
+        <strong>Bill To:</strong><br/>
+        ${shipAddressHTML}
+      </div>
+      <section class="invoice-section order-items" style="margin-top:1rem;">
+        <table aria-label="Order items">
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="text-align:right;">Total:</td>
+              <td>${formatCurrency(totalAmount)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+      <button class="download-button" aria-label="Download invoice for order ${orderId} as PDF" onclick="downloadInvoicePDF('${orderId}')">Download PDF</button>
+    </article>
+    `;
+  }
+
+  // Store invoices HTML to enable PDF export by order ID
+  let currentInvoices = {};
+
+  // File upload and processing logic
+  const orderFileInput = document.getElementById('orderFile');
+  const generateInvoicesBtn = document.getElementById('generateInvoicesBtn');
+  const invoicesContainer = document.getElementById('invoicesContainer');
+
+  let uploadedOrdersData = null;
+
+  orderFileInput.addEventListener('change', () => {
+    if (orderFileInput.files.length > 0) {
+      generateInvoicesBtn.disabled = false;
+    } else {
+      generateInvoicesBtn.disabled = true;
+    }
+  });
+
+  generateInvoicesBtn.addEventListener('click', () => {
+    const file = orderFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        uploadedOrdersData = JSON.parse(e.target.result);
+        renderInvoices(uploadedOrdersData);
+      } catch (err) {
+        alert('Invalid JSON file. Please upload a valid Amazon orders JSON file.');
+        invoicesContainer.innerHTML = '';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function renderInvoices(data) {
+    invoicesContainer.innerHTML = '';
+    currentInvoices = {};
+    // The data structure may vary; try to normalize:
+    // - data might be array of orders
+    // - or wrapped object with "orders" array etc.
+    let orders = [];
+
+    if (Array.isArray(data)) {
+      orders = data;
+    } else if (data.orders && Array.isArray(data.orders)) {
+      orders = data.orders;
+    } else if (data.Orders && Array.isArray(data.Orders)) {
+      orders = data.Orders;
+    } else {
+      // fallback assuming data is a single order object
+      orders = [data];
+    }
+
+    if (orders.length === 0) {
+      invoicesContainer.innerHTML = '<p>No orders found in uploaded data.</p>';
+      return;
+    }
+
+    orders.forEach(order => {
+      const invoiceHTML = createInvoiceHTML(order);
+      invoicesContainer.insertAdjacentHTML('beforeend', invoiceHTML);
+      const orderId = order.amazonOrderId || order.OrderId || 'N/A';
+      currentInvoices[orderId] = invoiceHTML;
+    });
+  }
+
+  // PDF generation using jsPDF and html2canvas via CDN
+  // We'll programmatically capture the invoice element to canvas and create PDF
+  async function downloadInvoicePDF(orderId) {
+    const invoiceElement = [...document.querySelectorAll('.invoice')]
+      .find(el => el.querySelector('header h2').textContent.includes(orderId));
+    if (!invoiceElement) {
+      alert('Invoice element not found for order: ' + orderId);
+      return;
+    }
+
+    // Dynamically load jsPDF and html2canvas if not already loaded
+    if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') {
+      try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      } catch (err) {
+        alert('Failed to load PDF generation libraries.');
+        return;
+      }
+    }
+
+    const { jsPDF } = window.jspdf;
+
+    // Use html2canvas to render the invoice area to canvas
+    html2canvas(invoiceElement, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`invoice_order_${orderId}.pdf`);
+    }).catch(err => {
+      alert('Error generating PDF: ' + err.message);
+    });
+  }
+
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+</script>
+</body>
+</html>
+
