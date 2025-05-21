@@ -19,19 +19,27 @@ Tech Stack:
 Amazon Selling Partner API (SP-API) includes:
 
 •Orders API v0: Retrieve order information.
+
 •Vendor Invoices API v1: Manage invoice generation and submission.
 
 To connect this tool directly with SP-API, a secure backend is required to handle:
 
+
 •OAuth2 authentication
+
 •Access tokens
+
 •API calls with credentials
 
 This project demonstrates the frontend component only. Full integration can be added via a backend using the SP-API documentation.
 
 Improvements required:
 
+
 •Backend integration for real-time data fetching
+
 •Custom invoice branding and templates
+
 •Batch PDF download
+
 •Localization support
